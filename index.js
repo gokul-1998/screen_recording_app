@@ -1,38 +1,36 @@
-let btn = document.querySelector(".record-btn")
+const handleRecord = function ({stream, mimeType}) {
+  // to collect stream chunks
+  let recordedChunks = [];
+  stopped = false;
+  const mediaRecorder = new MediaRecorder(stream);
 
-btn.addEventListener("click", async function () {
-  let stream = await navigator.mediaDevices.getDisplayMedia({
-    video: true
-  })
+  mediaRecorder.ondataavailable = function (e) {
+    if (e.data.size > 0) {
+      recordedChunks.push(e.data);
+    }
+    // shouldStop => forceStop by user
+    if (shouldStop === true && stopped === false) {
+      mediaRecorder.stop();
+      stopped = true;
+    }
+  };
+  mediaRecorder.onstop = function () {
+    const blob = new Blob(recordedChunks, {
+      type: mimeType
+    });
+    recordedChunks = []
+    const filename = window.prompt('Enter file name'); // input filename from user for download
+    downloadLink.href = URL.createObjectURL(blob); // create download link for the file
+    downloadLink.download = `${filename}.webm`; // naming the file with user provided name
+    stopRecord();
+  };
 
-  //needed for better browser support
-  const mime = MediaRecorder.isTypeSupported("video/webm; codecs=vp9") 
-             ? "video/webm; codecs=vp9" 
-             : "video/webm"
-    let mediaRecorder = new MediaRecorder(stream, {
-        mimeType: mime
-    })
+  mediaRecorder.start(200); // here 200ms is interval of chunk collection
+};
 
-    let chunks = []
-    mediaRecorder.addEventListener('dataavailable', function(e) {
-        chunks.push(e.data)
-    })
-
-    mediaRecorder.addEventListener('stop', function(){
-      let blob = new Blob(chunks, {
-          type: chunks[0].type
-      })
-      let url = URL.createObjectURL(blob)
-
-      let video = document.querySelector("video")
-      video.src = url
-
-      let a = document.createElement('a')
-      a.href = url
-      a.download = 'video.webm'
-      a.click()
-  })
-
-    //we have to start the recorder manually
-    mediaRecorder.start()
-})
+async function recordAudio() {
+  const mimeType = 'audio/webm';
+  shouldStop = false;
+  const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+  handleRecord({stream, mimeType})
+}
